@@ -1,30 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Friends System mit Firebase & Chat</title>
+  <title>Friends & Chat System</title>
 
-  <!-- QRCode Generator -->
+  <!-- QRCode Lib -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
-  <!-- QRCode Scanner -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <!-- Firebase SDK -->
+  <!-- Firebase SDKs (Compat-Versionen für Realtime Database und einfache Nutzung) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- HTML5 QR Code Scanner -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
   <style>
     body {
       font-family: sans-serif;
-      margin: 0;
-      padding: 1rem;
+      margin: 0; padding: 1rem;
       background: #fff;
       color: #000;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
       position: relative;
       height: 100vh;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-
+    h1, h2 {
+      margin: 0 0 0.5rem 0;
+    }
     .row {
       display: flex;
       justify-content: space-between;
@@ -32,7 +37,6 @@
       flex-wrap: wrap;
       margin-bottom: 1rem;
     }
-
     .card {
       background: #fff;
       border: 1.5px solid #000;
@@ -40,30 +44,22 @@
       padding: 1rem;
       margin-bottom: 1rem;
     }
-
-    h1, h2 {
-      margin: 0 0 0.5rem 0;
-    }
-
-    input, button, textarea {
+    input, button {
       padding: 0.6rem;
       font-size: 1rem;
       border: 1.5px solid #000;
       border-radius: 10px;
       background: #fff;
       color: #000;
-      font-family: sans-serif;
     }
-
     button {
       cursor: pointer;
+      user-select: none;
     }
-
     button:hover {
       background: #000;
       color: #fff;
     }
-
     .btn-small {
       padding: 0.3rem;
       font-size: 1.2rem;
@@ -78,12 +74,10 @@
       background: #fff;
       color: #000;
     }
-
     .btn-small:hover {
       background: #000;
       color: #fff;
     }
-
     .friend-item {
       display: flex;
       justify-content: space-between;
@@ -94,112 +88,122 @@
       margin-bottom: 0.6rem;
       font-size: 1rem;
     }
-
     .friend-text {
       flex-grow: 1;
-      cursor: pointer;
+      overflow-wrap: break-word;
     }
-
-    .friend-code {
-      font-size: 0.7rem;
-      color: #555;
-    }
-
     .qr-box {
       margin-top: 0.5rem;
+      display: flex;
+      justify-content: center;
     }
-
     .input-row {
       display: flex;
       gap: 0.5rem;
       flex-wrap: wrap;
       margin-bottom: 0.5rem;
     }
-
-    #qr-reader {
-      width: 300px;
-      margin-top: 1rem;
-      display: none;
+    @media (max-width: 600px) {
+      .input-row {
+        flex-direction: column;
+      }
+      .row {
+        flex-direction: column;
+      }
     }
-
-    /* Chat Fenster rechts oben */
-    #chat-button {
+    /* Chat Button */
+    #chat-btn {
       position: fixed;
       top: 1rem;
       right: 1rem;
-      padding: 0.5rem 1rem;
       background: #000;
       color: #fff;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
       border: none;
-      border-radius: 12px;
+      font-size: 24px;
       cursor: pointer;
-      display: none; /* erst sichtbar, wenn Freund ausgewählt */
-      z-index: 1000;
+      z-index: 9999;
     }
-
+    /* Chat Window */
     #chat-window {
       position: fixed;
-      top: 3.5rem;
-      right: 1rem;
-      width: 320px;
-      height: 400px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+      height: 350px;
       background: #fff;
-      border: 1.5px solid #000;
-      border-radius: 12px;
+      border: 2px solid #000;
+      border-radius: 12px 12px 0 0;
       display: none;
       flex-direction: column;
-      z-index: 1000;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      z-index: 9998;
     }
-
     #chat-header {
       padding: 0.5rem 1rem;
       border-bottom: 1.5px solid #000;
-      font-weight: bold;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-
     #chat-messages {
       flex-grow: 1;
       overflow-y: auto;
       padding: 1rem;
       font-size: 0.9rem;
-      background: #f0f0f0;
+      background: #f9f9f9;
     }
-
     #chat-input-row {
       display: flex;
-      padding: 0.5rem;
+      padding: 0.5rem 1rem;
       border-top: 1.5px solid #000;
     }
-
     #chat-input {
       flex-grow: 1;
-      resize: none;
-      height: 50px;
-      font-size: 1rem;
       padding: 0.5rem;
-      border-radius: 10px;
+      font-size: 1rem;
       border: 1.5px solid #000;
-      margin-right: 0.5rem;
+      border-radius: 10px;
     }
-
-    #send-btn {
+    #chat-send-btn {
       padding: 0.5rem 1rem;
-      border: none;
+      margin-left: 0.5rem;
+      font-size: 1rem;
+      border: 1.5px solid #000;
       border-radius: 10px;
       background: #000;
       color: #fff;
       cursor: pointer;
     }
-
+    #chat-send-btn:hover {
+      background: #333;
+    }
+    .message {
+      margin-bottom: 0.7rem;
+      max-width: 80%;
+      padding: 0.5rem 0.7rem;
+      border-radius: 10px;
+      word-wrap: break-word;
+    }
+    .message.self {
+      background: #000;
+      color: #fff;
+      align-self: flex-end;
+    }
+    .message.friend {
+      background: #ddd;
+      color: #000;
+      align-self: flex-start;
+    }
   </style>
 </head>
 <body>
 
-  <h1>🎉 Friends System mit Firebase & Chat</h1>
+  <h1>🎉 Friends & Chat System</h1>
 
   <div class="row">
     <div>
@@ -210,6 +214,7 @@
       <button onclick="generateCode()" id="generate-btn">Generate Code</button>
     </div>
   </div>
+
   <div id="qrcode" class="qr-box"></div>
 
   <div class="card">
@@ -217,9 +222,8 @@
     <div class="input-row">
       <input type="text" id="friend-code-input" placeholder="USR-123456" />
       <button onclick="addFriend()">Add</button>
-      <button onclick="toggleScan()">Scan QR</button>
+      <button id="scan-btn">Scan QR</button>
     </div>
-    <div id="qr-reader"></div>
   </div>
 
   <div class="card">
@@ -227,24 +231,22 @@
     <ul id="friend-list" style="list-style: none; padding-left: 0;"></ul>
   </div>
 
-  <!-- Chat Button -->
-  <button id="chat-button" onclick="toggleChat()">Chat</button>
+  <button id="chat-btn" title="Open Chat 💬" style="display:none;">💬</button>
 
-  <!-- Chat Fenster -->
   <div id="chat-window">
     <div id="chat-header">
-      <span id="chat-friend-name">Chat</span>
-      <button onclick="closeChat()" title="Close Chat" style="cursor:pointer;">✖️</button>
+      <span id="chat-with-name">Chat</span>
+      <button id="chat-close-btn" title="Close Chat">✖️</button>
     </div>
     <div id="chat-messages"></div>
     <div id="chat-input-row">
-      <textarea id="chat-input" placeholder="Write a message..."></textarea>
-      <button id="send-btn" onclick="sendMessage()">Send</button>
+      <input type="text" id="chat-input" placeholder="Write a message..." />
+      <button id="chat-send-btn">Send</button>
     </div>
   </div>
 
   <script>
-    // --- Firebase config hier eintragen ---
+    // Deine Firebase-Konfiguration hier:
     const firebaseConfig = {
       apiKey: "AIzaSyCzUTnIfRB-qBlvTds4RmhTBFves5BQhxk",
       authDomain: "itsoneme-9481d.firebaseapp.com",
@@ -256,293 +258,226 @@
       measurementId: "G-QS9ZHC8WW2"
     };
 
-    // Init Firebase
+    // Firebase initialisieren
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- Variablen ---
+    // Globale Variablen
     let myCode = localStorage.getItem("myCode");
-    let friends = []; // wir holen aus Firebase
+    let friends = JSON.parse(localStorage.getItem("friends") || "[]");
     let currentChatFriend = null;
-    let qrScanner = null;
+    const chatBtn = document.getElementById('chat-btn');
+    const chatWindow = document.getElementById('chat-window');
+    const chatMessagesDiv = document.getElementById('chat-messages');
 
-    // Initial UI Setup
-    const myCodeP = document.getElementById("my-code");
-    const generateBtnContainer = document.getElementById("generate-btn-container");
-    const qrcodeDiv = document.getElementById("qrcode");
-    const friendListUl = document.getElementById("friend-list");
-    const qrReaderDiv = document.getElementById("qr-reader");
+    // Wenn Code schon vorhanden, direkt anzeigen und Freunde listen
+    if (myCode) {
+      showMyCode();
+      document.getElementById("generate-btn-container").style.display = "none";
+      generateQRCode(myCode);
+      listenToFriends();
+    }
 
-    // Chat Elemente
-    const chatButton = document.getElementById("chat-button");
-    const chatWindow = document.getElementById("chat-window");
-    const chatFriendName = document.getElementById("chat-friend-name");
-    const chatMessagesDiv = document.getElementById("chat-messages");
-    const chatInput = document.getElementById("chat-input");
-
-    // --- Funktionen ---
-
+    // Code generieren
     function generateCode() {
       if (!myCode) {
         myCode = "USR-" + Math.floor(100000 + Math.random() * 900000);
         localStorage.setItem("myCode", myCode);
-        myCodeP.textContent = myCode;
-        generateBtnContainer.style.display = "none";
+        showMyCode();
         generateQRCode(myCode);
-        // Speichern im Firebase (User root)
-        db.ref("users/" + myCode).set({
-          createdAt: Date.now(),
-          friends: {}
-        });
-        listenForFriends();
+        document.getElementById("generate-btn-container").style.display = "none";
+        listenToFriends();
       }
     }
 
-    function generateQRCode(code) {
-      qrcodeDiv.innerHTML = "";
-      new QRCode(qrcodeDiv, code);
+    // Eigener Code anzeigen
+    function showMyCode() {
+      document.getElementById("my-code").textContent = myCode;
     }
 
-    // Freunde aus Firebase holen und anzeigen
-    function listenForFriends() {
-      if (!myCode) return;
-      const friendsRef = db.ref("users/" + myCode + "/friends");
+    // QR-Code generieren
+    function generateQRCode(code) {
+      document.getElementById("qrcode").innerHTML = ""; // clear old QR
+      new QRCode("qrcode", {
+        text: code,
+        width: 128,
+        height: 128
+      });
+    }
 
-      friendsRef.on("value", (snapshot) => {
-        const val = snapshot.val() || {};
-        // val ist ein Objekt mit friendCodes als keys
-        friends = Object.keys(val).map(friendCode => ({
-          code: friendCode,
-          name: val[friendCode].name || "Friend"
-        }));
+    // Freund hinzufügen
+    function addFriend() {
+      const input = document.getElementById("friend-code-input").value.trim().toUpperCase();
+      if (!input || input === myCode || friends.includes(input)) {
+        alert("Ungültiger Code oder Freund bereits hinzugefügt.");
+        return;
+      }
+      friends.push(input);
+      localStorage.setItem("friends", JSON.stringify(friends));
+      // Freundesbeziehung in Firebase speichern (bidirektional)
+      db.ref(`users/${myCode}/friends/${input}`).set(true);
+      db.ref(`users/${input}/friends/${myCode}`).set(true);
+      renderFriends();
+      document.getElementById("friend-code-input").value = "";
+    }
+
+    // Freundesliste anzeigen
+    function renderFriends() {
+      const list = document.getElementById("friend-list");
+      list.innerHTML = "";
+      friends.forEach(code => {
+        const li = document.createElement("li");
+        li.className = "friend-item";
+        li.innerHTML = `<div class="friend-text">${code}</div><button class="btn-small" onclick="openChat('${code}')">💬</button>`;
+        list.appendChild(li);
+      });
+      chatBtn.style.display = friends.length > 0 ? "block" : "none";
+    }
+
+    // Chat öffnen
+    function openChat(friendCode) {
+      currentChatFriend = friendCode;
+      document.getElementById("chat-with-name").textContent = `Chat mit ${friendCode}`;
+      chatWindow.style.display = "flex";
+      chatMessagesDiv.innerHTML = "";
+      const chatId = [myCode, friendCode].sort().join("_");
+      const chatRef = db.ref(`chats/${chatId}`);
+
+      chatRef.off(); // vorherigen Listener entfernen
+      chatRef.on('value', snapshot => {
+        chatMessagesDiv.innerHTML = "";
+        const messages = snapshot.val() || {};
+        Object.values(messages).forEach(msg => {
+          const div = document.createElement("div");
+          div.className = "message " + (msg.sender === myCode ? "self" : "friend");
+          div.textContent = msg.text;
+          chatMessagesDiv.appendChild(div);
+        });
+        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+      });
+    }
+
+    // Nachricht senden
+    document.getElementById("chat-send-btn").addEventListener("click", () => {
+      const input = document.getElementById("chat-input");
+      const text = input.value.trim();
+      if (!text || !currentChatFriend) return;
+      const chatId = [myCode, currentChatFriend].sort().join("_");
+      const msgRef = db.ref(`chats/${chatId}`).push();
+      msgRef.set({ sender: myCode, text, timestamp: Date.now() });
+      input.value = "";
+    });
+
+    // Chat schließen
+    document.getElementById("chat-close-btn").addEventListener("click", () => {
+      chatWindow.style.display = "none";
+      currentChatFriend = null;
+    });
+
+    // Freundesliste aus Firebase hören (bidirektional)
+    function listenToFriends() {
+      if (!myCode) return;
+      const friendsRef = db.ref(`users/${myCode}/friends`);
+      friendsRef.on("value", snapshot => {
+        const data = snapshot.val() || {};
+        friends = Object.keys(data);
+        localStorage.setItem("friends", JSON.stringify(friends));
         renderFriends();
       });
     }
 
-    // Freunde rendern mit Klick auf Namen (öffnet Chat)
-    function renderFriends() {
-      friendListUl.innerHTML = "";
-      if (friends.length === 0) {
-        friendListUl.innerHTML = "<li>No friends yet.</li>";
-        chatButton.style.display = "none";
-        closeChat();
-        return;
-      }
+    // QR-Code Scanner setup
+    const scanBtn = document.getElementById("scan-btn");
+    let html5QrcodeScanner = null;
 
-      friends.forEach((friend) => {
-        const li = document.createElement("li");
-        li.className = "friend-item";
-
-        const friendTextDiv = document.createElement("div");
-        friendTextDiv.className = "friend-text";
-        friendTextDiv.textContent = friend.name + " (" + friend.code + ")";
-        friendTextDiv.title = "Click to open chat";
-        friendTextDiv.onclick = () => {
-          openChat(friend);
-        };
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "btn-small";
-        editBtn.textContent = "✏️";
-        editBtn.onclick = () => {
-          const newName = prompt("Enter new name", friend.name);
-          if (newName && newName.trim() !== "") {
-            // Update in Firebase, unter deinem Friend-Namen
-            db.ref(`users/${myCode}/friends/${friend.code}/name`).set(newName.trim());
-          }
-        };
-
-        const delBtn = document.createElement("button");
-        delBtn.className = "btn-small";
-        delBtn.textContent = "❌";
-        delBtn.onclick = () => {
-          // Freund entfernen (beidseitig)
-          removeFriend(friend.code);
-        };
-
-        li.appendChild(friendTextDiv);
-        li.appendChild(editBtn);
-        li.appendChild(delBtn);
-        friendListUl.appendChild(li);
-      });
-    }
-
-    // Freund hinzufügen (beidseitig)
-    async function addFriend() {
-      const input = document.getElementById("friend-code-input");
-      const code = input.value.trim().toUpperCase();
-      if (!/^USR-\d{6}$/.test(code)) {
-        alert("Invalid code format. Use USR-123456.");
-        return;
-      }
-      if (code === myCode) {
-        alert("You cannot add yourself.");
-        return;
-      }
-      if (friends.some(f => f.code === code)) {
-        alert("Friend already added.");
-        return;
-      }
-
-      // Prüfen, ob User existiert in Firebase
-      const friendSnap = await db.ref("users/" + code).get();
-      if (!friendSnap.exists()) {
-        alert("Friend code does not exist.");
-        return;
-      }
-
-      // Beidseitig Freund hinzufügen
-      const updates = {};
-      updates[`users/${myCode}/friends/${code}`] = { name: "Friend " + code.substring(4) };
-      updates[`users/${code}/friends/${myCode}`] = { name: "Friend " + myCode.substring(4) };
-
-      await db.ref().update(updates);
-
-      input.value = "";
-      // Lokale Freunde werden durch listener geupdated
-    }
-
-    // Freund entfernen (beidseitig)
-    async function removeFriend(friendCode) {
-      const confirmDel = confirm(`Remove friend ${friendCode}?`);
-      if (!confirmDel) return;
-
-      const updates = {};
-      updates[`users/${myCode}/friends/${friendCode}`] = null;
-      updates[`users/${friendCode}/friends/${myCode}`] = null;
-
-      await db.ref().update(updates);
-
-      if (currentChatFriend && currentChatFriend.code === friendCode) {
-        closeChat();
-      }
-    }
-
-    // Chat-Funktion
-    function openChat(friend) {
-      currentChatFriend = friend;
-      chatFriendName.textContent = friend.name + " (" + friend.code + ")";
-      chatButton.style.display = "inline-block";
-      chatWindow.style.display = "flex";
-      chatMessagesDiv.innerHTML = "";
-      listenForMessages();
-    }
-
-    function toggleChat() {
-      if (chatWindow.style.display === "flex") {
-        chatWindow.style.display = "none";
-      } else {
-        chatWindow.style.display = "flex";
-        chatInput.focus();
-      }
-    }
-
-    function closeChat() {
-      chatWindow.style.display = "none";
-      chatButton.style.display = "none";
-      currentChatFriend = null;
-      chatMessagesDiv.innerHTML = "";
-    }
-
-    // Nachrichten aus Firebase holen und anzeigen
-    function listenForMessages() {
-      if (!myCode || !currentChatFriend) return;
-
-      const chatId = generateChatId(myCode, currentChatFriend.code);
-      const messagesRef = db.ref(`chats/${chatId}`);
-
-      messagesRef.off(); // vorherige Listener löschen
-
-      messagesRef.on("child_added", (snapshot) => {
-        const msg = snapshot.val();
-        appendMessage(msg);
-      });
-    }
-
-    function appendMessage(msg) {
-      const div = document.createElement("div");
-      div.style.marginBottom = "0.4rem";
-      div.style.padding = "0.3rem 0.5rem";
-      div.style.borderRadius = "12px";
-      div.style.maxWidth = "80%";
-
-      if (msg.sender === myCode) {
-        div.style.backgroundColor = "#0b93f6";
-        div.style.color = "white";
-        div.style.marginLeft = "auto";
-        div.style.textAlign = "right";
-      } else {
-        div.style.backgroundColor = "#e5e5ea";
-        div.style.color = "black";
-        div.style.marginRight = "auto";
-        div.style.textAlign = "left";
-      }
-
-      div.textContent = msg.text;
-      chatMessagesDiv.appendChild(div);
-      chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-    }
-
-    function sendMessage() {
-      if (!currentChatFriend) return;
-      const text = chatInput.value.trim();
-      if (text === "") return;
-
-      const chatId = generateChatId(myCode, currentChatFriend.code);
-      const messagesRef = db.ref(`chats/${chatId}`);
-
-      const newMsgRef = messagesRef.push();
-      newMsgRef.set({
-        sender: myCode,
-        text: text,
-        timestamp: Date.now()
-      });
-
-      chatInput.value = "";
-    }
-
-    // Chat-ID erzeugen, damit beide dieselbe Chat-ID haben
-    function generateChatId(code1, code2) {
-      return [code1, code2].sort().join("_");
-    }
-
-    // QR Code Scanner toggle
-    function toggleScan() {
-      if (qrReaderDiv.style.display === "none") {
-        qrReaderDiv.style.display = "block";
-        qrScanner = new Html5Qrcode("qr-reader");
-        qrScanner.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: 250 },
-          (decodedText) => {
-            qrScanner.stop().then(() => {
-              qrReaderDiv.style.display = "none";
-              document.getElementById("friend-code-input").value = decodedText;
-              addFriend();
-            }).catch(console.error);
-          },
-          (errorMessage) => {
-            // Ignoriere Scan-Fehler
-          }
-        ).catch((err) => {
-          alert("Camera access denied or not available.");
-          qrReaderDiv.style.display = "none";
+    scanBtn.addEventListener("click", () => {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner.clear();
+          html5QrcodeScanner = null;
+          scanBtn.textContent = "Scan QR";
         });
+        return;
+      }
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      scanBtn.textContent = "Stop Scan";
+
+      const qrboxSize = 250;
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: qrboxSize
+        },
+        qrCodeMessage => {
+          // Ergebnis vom QR-Scanner
+          if (qrCodeMessage.startsWith("USR-")) {
+            addFriendByCode(qrCodeMessage);
+            html5QrcodeScanner.stop();
+            html5QrcodeScanner.clear();
+            html5QrcodeScanner = null;
+            scanBtn.textContent = "Scan QR";
+          } else {
+            alert("Ungültiger QR-Code");
+          }
+        },
+        errorMessage => {
+          // console.warn(`QR Fehler: ${errorMessage}`);
+        }
+      ).catch(err => {
+        alert("Fehler beim Starten des QR-Scanners: " + err);
+        html5QrcodeScanner = null;
+        scanBtn.textContent = "Scan QR";
+      });
+    });
+
+    function addFriendByCode(code) {
+      if (code === myCode || friends.includes(code)) {
+        alert("Ungültiger Code oder Freund bereits hinzugefügt.");
+        return;
+      }
+      friends.push(code);
+      localStorage.setItem("friends", JSON.stringify(friends));
+      db.ref(`users/${myCode}/friends/${code}`).set(true);
+      db.ref(`users/${code}/friends/${myCode}`).set(true);
+      renderFriends();
+    }
+
+    // QR-Code-Reader Container hinzufügen (versteckt, nur sichtbar beim Scannen)
+    const qrReaderContainer = document.createElement("div");
+    qrReaderContainer.id = "reader";
+    qrReaderContainer.style.position = "fixed";
+    qrReaderContainer.style.top = "0";
+    qrReaderContainer.style.left = "0";
+    qrReaderContainer.style.width = "100vw";
+    qrReaderContainer.style.height = "100vh";
+    qrReaderContainer.style.backgroundColor = "rgba(0,0,0,0.8)";
+    qrReaderContainer.style.zIndex = "9999";
+    qrReaderContainer.style.display = "none";
+    document.body.appendChild(qrReaderContainer);
+
+    scanBtn.addEventListener("click", () => {
+      if (qrReaderContainer.style.display === "none") {
+        qrReaderContainer.style.display = "block";
       } else {
-        qrScanner.stop().catch(console.error);
-        qrReaderDiv.style.display = "none";
+        qrReaderContainer.style.display = "none";
+      }
+    });
+
+    // Beim Beenden des Scans Container ausblenden
+    function stopScan() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner.clear();
+          html5QrcodeScanner = null;
+          scanBtn.textContent = "Scan QR";
+          qrReaderContainer.style.display = "none";
+        });
       }
     }
 
-    // --- Init ---
-
-    if (myCode) {
-      myCodeP.textContent = myCode;
-      generateBtnContainer.style.display = "none";
-      generateQRCode(myCode);
-      listenForFriends();
-    }
-
+    // Freunde direkt rendern falls schon vorhanden
+    renderFriends();
   </script>
 
 </body>
