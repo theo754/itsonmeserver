@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Friends System</title>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -130,7 +132,7 @@
     <div class="input-row">
       <input type="text" id="friend-code-input" placeholder="USR-123456" />
       <button onclick="addFriend()">Add</button>
-      <button onclick="alert('QR Scan not available in browser')">Scan QR</button>
+      <button onclick="scanQRCode()">Scan QR</button>
     </div>
   </div>
 
@@ -140,28 +142,69 @@
   </div>
 
   <script>
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCzUTnIfRB-qBlvTds4RmhTBFves5BQhxk",
+      authDomain: "itsoneme-9481d.firebaseapp.com",
+      databaseURL: "https://itsoneme-9481d-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "itsoneme-9481d",
+      storageBucket: "itsoneme-9481d.appspot.com",
+      messagingSenderId: "418680408559",
+      appId: "1:418680408559:web:ba340a8b92276069074e1a",
+      measurementId: "G-QS9ZHC8WW2"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     let myCode = localStorage.getItem("myCode");
-
-    if (myCode) {
-      document.getElementById("my-code").textContent = myCode;
-      document.getElementById("generate-btn-container").style.display = "none";
-      new QRCode(document.getElementById("qrcode"), myCode);
-    }
-
-    let friends = JSON.parse(localStorage.getItem("friends") || "[]");
 
     function generateCode() {
       if (!myCode) {
         myCode = "USR-" + Math.floor(100000 + Math.random() * 900000);
         localStorage.setItem("myCode", myCode);
-        document.getElementById("my-code").textContent = myCode;
-        document.getElementById("qrcode").innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), myCode);
-        document.getElementById("generate-btn-container").style.display = "none";
+        db.ref("users/" + myCode).set({ friends: {} });
+        location.reload();
       }
     }
 
-    function renderFriends() {
+    if (myCode) {
+      document.getElementById("my-code").textContent = myCode;
+      document.getElementById("generate-btn-container").style.display = "none";
+      new QRCode(document.getElementById("qrcode"), myCode);
+      loadFriends();
+    }
+
+    function addFriend() {
+      const input = document.getElementById("friend-code-input");
+      const code = input.value.trim();
+      if (!/^USR-\d{6}$/.test(code)) {
+        alert("Invalid code format. Use USR-123456.");
+        return;
+      }
+      if (code === myCode) {
+        alert("You cannot add yourself.");
+        return;
+      }
+
+      const myRef = db.ref(`users/${myCode}/friends/${code}`);
+      const theirRef = db.ref(`users/${code}/friends/${myCode}`);
+
+      myRef.set({ name: "Friend " + code.slice(4), code });
+      theirRef.set({ name: "Friend " + myCode.slice(4), code: myCode });
+
+      input.value = "";
+      setTimeout(loadFriends, 500);
+    }
+
+    function loadFriends() {
+      db.ref("users/" + myCode + "/friends").on("value", (snapshot) => {
+        const data = snapshot.val() || {};
+        renderFriends(Object.values(data));
+      });
+    }
+
+    function renderFriends(friends) {
       const list = document.getElementById("friend-list");
       list.innerHTML = "";
       if (friends.length === 0) {
@@ -169,7 +212,7 @@
         return;
       }
 
-      friends.forEach((friend, index) => {
+      friends.forEach(friend => {
         const li = document.createElement("li");
         li.className = "friend-item";
 
@@ -191,9 +234,7 @@
         editBtn.onclick = () => {
           const newName = prompt("Enter new name", friend.name);
           if (newName) {
-            friends[index].name = newName;
-            localStorage.setItem("friends", JSON.stringify(friends));
-            renderFriends();
+            db.ref(`users/${myCode}/friends/${friend.code}`).update({ name: newName });
           }
         };
 
@@ -201,9 +242,8 @@
         delBtn.className = "btn-small";
         delBtn.textContent = "❌";
         delBtn.onclick = () => {
-          friends.splice(index, 1);
-          localStorage.setItem("friends", JSON.stringify(friends));
-          renderFriends();
+          db.ref(`users/${myCode}/friends/${friend.code}`).remove();
+          db.ref(`users/${friend.code}/friends/${myCode}`).remove();
         };
 
         li.appendChild(nameDisplay);
@@ -213,24 +253,9 @@
       });
     }
 
-    function addFriend() {
-      const input = document.getElementById("friend-code-input");
-      const code = input.value.trim();
-      if (!/^USR-\d{6}$/.test(code)) {
-        alert("Invalid code format. Use USR-123456.");
-        return;
-      }
-      if (friends.some(f => f.code === code)) {
-        alert("Friend already added.");
-        return;
-      }
-      friends.push({ code: code, name: "Friend " + code.substring(4) });
-      localStorage.setItem("friends", JSON.stringify(friends));
-      input.value = "";
-      renderFriends();
+    function scanQRCode() {
+      alert("QR scanning must be implemented via a mobile scanner or external library (e.g. using a WebRTC camera scanner).");
     }
-
-    renderFriends();
   </script>
 
 </body>
